@@ -25,21 +25,21 @@ parser.add_argument('--modelPath', default='model.pt',  help='output model')
 opt = parser.parse_args()
 
 transform_train = transforms.Compose([
-	transforms.Scale((32, 32)),
+	transforms.RandomCrop(32, padding=4),
+	transforms.RandomHorizontalFlip(),
 	transforms.ToTensor(),
-	transforms.Normalize((0.5,), (1.0,))
+	transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
 
 transform_test = transforms.Compose([
-	transforms.Scale((32, 32)),
 	transforms.ToTensor(),
-	transforms.Normalize((0.5,), (1.0,))
+	transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
 
-trainset = torchvision.datasets.MNIST(root='./dataM', train=True, download=True, transform=transform_train)
+trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=False, transform=transform_train)
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=1, shuffle=True, num_workers=0)
 
-testset = torchvision.datasets.MNIST(root='./dataM', train=False, download=True, transform=transform_test)
+testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=False, transform=transform_test)
 testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=False, num_workers=0)
 
 trainsize = len(trainloader)
@@ -55,15 +55,11 @@ Ytrain = np.ndarray((trainsize, ))
 Ytest = np.ndarray((testsize, ))
 
 for i, (x, y) in enumerate(trainloader):
-	f = x.numpy()
-	for j in range(3):
-		Xtrain[i][j] = f[0].copy()
+	Xtrain[i] = x.numpy()
 	Ytrain[i] = y.numpy()
 
 for i, (x, y) in enumerate(testloader):
-	f = x.numpy()
-	for j in range(3):
-		Xtest[i][j] = f[0].copy()
+	Xtest[i] = x.numpy()
 	Ytest[i] = y.numpy()
 	
 # data = torchfile.load(opt.data) # load dataset in torch fromat (assuming already normalized)
@@ -108,11 +104,11 @@ nFilters = 15; rounds = 25
 # helper for augmentation - necessary for cifar 
 def transform(X):
 	tmp = np.zeros((np.shape(X)[0],3,38,38))
-	tmp[:, :, 2:30, 2:30] = X
+	tmp[:, :, 2:34, 2:34] = X
 	for i in range(np.shape(X)[0]):
 		r1 = np.random.randint(4)
 		r2 = np.random.randint(4)
-		X[i] = tmp[i, :, r1 : r1 + 28, r2 : r2 + 28]
+		X[i] = tmp[i, :, r1 : r1 + 32, r2 : r2 + 32]
 		if np.random.uniform() > .5:
 			X[i] = X[i,:,:,::-1]
 	return X
@@ -169,7 +165,7 @@ for n in range(rounds):
 	modelTmp = modelTmp.cuda()
 	optimizer = torch.optim.Adam(modelTmp.parameters(), lr=opt.lr) 
 	tries = 0
-	XbatchTest = torch.zeros(opt.batchSize, nFilters, 28, 28)
+	XbatchTest = torch.zeros(opt.batchSize, nFilters, 32, 32)
 	while (gamma < opt.gammaThresh and ((opt.checkEvery * tries) < opt.maxIters)):
 		accTrain = 0; 
 		accTest = 0; 
@@ -186,7 +182,7 @@ for n in range(rounds):
 			Ybatch = Variable(torch.from_numpy(Ytrain[ints])).cuda().long()
 
 			# do transformations
-			#if opt.transform: Xbatch = transform(Xbatch)
+			if opt.transform: Xbatch = transform(Xbatch)
 			data = Variable(torch.from_numpy(Xbatch)).float().cuda()
 			for i in range(n): data = allBlocks[i](data)
 
@@ -194,7 +190,7 @@ for n in range(rounds):
 			output = modelTmp(data)
 			loss = torch.exp(criterion(output, Ybatch))
 			loss.backward()
-			err += loss.item()
+			err += loss.data.item()
 
 			# evaluate training accuracy
 			output = modelTmp(data)
@@ -245,4 +241,3 @@ for n in range(rounds):
 	gamma_previous = gamma_current
 
 torch.save(model.state_dict(), opt.modelPath)
-
