@@ -12,9 +12,7 @@ import torchvision
 import torchvision.transforms as transforms
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--gammaFirst', default=0.5,  help='initial gamma')
 parser.add_argument('--checkEvery', default=10000, help='how frequently to check gamma requirement - 10k for cifar, 5k for svhn')
-parser.add_argument('--data', default='SVHN.t7', help='load data')
 parser.add_argument('--gammaThresh',default=-0.0001, help='gamma threshold to stop training layer')
 parser.add_argument('--lr', default=0.001, help='learning rate')
 parser.add_argument('--maxIters', default=10000, help='maximum iterations before stopping train layer')
@@ -45,9 +43,6 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=False, n
 trainsize = len(trainloader)
 testsize = len(testloader)
 
-print (trainsize)
-print (testsize)
-
 Xtrain = np.ndarray((trainsize, 3, 32, 32))
 Xtest = np.ndarray((testsize, 3, 32, 32))
 
@@ -66,20 +61,12 @@ for i, (x, y) in enumerate(testloader):
 		Xtest[i][j] = f[0].copy()
 	Ytest[i] = y.numpy()
 	
-# data = torchfile.load(opt.data) # load dataset in torch fromat (assuming already normalized)
-# Xtrain = data.Xtrain
-# Ytrain = data.Ytrain - 1
-# Xtest = data.Xtest
-# Ytest = data.Ytest - 1
 cut = int(np.shape(Xtrain)[0] / opt.batchSize * opt.batchSize) # cut off a few samples for simplicity
-# print (cut)
-# cut = 3000
 nTrain = cut
 Xtrain = Xtrain[:cut]
 Ytrain = Ytrain[:cut]
+
 cut = int(np.shape(Xtest)[0] / opt.batchSize * opt.batchSize)
-# print (cut)
-# cut = 1000
 Xtest = Xtest[:cut]
 Ytest = Ytest[:cut]
 nTest = cut
